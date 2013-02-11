@@ -164,3 +164,8 @@ pip-log.txt
 
 # Project specific
 tessdata/
+build/
+dist/
+*.spec
+*.log
+

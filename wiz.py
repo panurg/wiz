@@ -1,5 +1,5 @@
 # wiz
-# v0.3
+# v0.4
 # by panurg
 #
 # i hope u will enjoy this script :3
@@ -12,6 +12,7 @@ import cv2.cv as cv
 import pythoncom
 import pyHook
 import threading
+import numpy.core.multiarray # workaround for Pyinstaller
 
 bp_needed = 40
 
