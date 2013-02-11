@@ -1,5 +1,5 @@
 # wiz
-# v0.2
+# v0.3
 # by panurg
 #
 # i hope u will enjoy this script :3
@@ -9,8 +9,16 @@ import time
 import ImageGrab
 import tesseract
 import cv2.cv as cv
+import pythoncom
+import pyHook
+import threading
 
 bp_needed = 40
+
+start_key = 'F1'
+stop_key = 'Escape'
+
+game_name = 'Wizardry Online'
 
 max = 65535
 
@@ -41,7 +49,15 @@ ok_y = cancel_y
 center_ok_x = max / 2
 center_ok_y = max / 2 + max / height * center_ok_shift
 
-time.sleep(5)
+def on_keyboard_event(event):
+  if event.WindowName == game_name:
+    if event.Key == start_key:
+      print "rolling..."
+      start.set()
+    if event.Key == stop_key:
+      print "stopped"
+      stop.set()
+  return True
 
 def press():
   delay = 0.1
@@ -68,31 +84,57 @@ def select_center_ok():
   win32api.mouse_event(0x8001, center_ok_x, center_ok_y)
   press()
 
-bonus_points = 0
-count = 0
-box = (width / 2 - font_size, height / 2 - font_size, width / 2 + font_size, height / 2 + font_size)
-api = tesseract.TessBaseAPI()
-api.Init(".","eng",tesseract.OEM_DEFAULT)
-api.SetVariable("tessedit_char_whitelist", "0123456789")
-api.SetPageSegMode(tesseract.PSM_SINGLE_WORD)
+def roll():
+  box = (width / 2 - font_size, height / 2 - font_size, width / 2 + font_size, height / 2 + font_size)
+  api = tesseract.TessBaseAPI()
+  api.Init(".","eng",tesseract.OEM_DEFAULT)
+  api.SetVariable("tessedit_char_whitelist", "0123456789")
+  api.SetPageSegMode(tesseract.PSM_SINGLE_WORD)
 
-while bonus_points < bp_needed:
-  select_cancel()
-  select_gnome()
-  select_ok()
-  time.sleep(2.2)
-  im = ImageGrab.grab(box)
-  cimg = cv.CreateImageHeader(im.size, cv.IPL_DEPTH_8U, 3)
-  cv.SetData(cimg, im.tostring())
-  tesseract.SetCvImage(cimg, api)
-  result = api.GetUTF8Text()
-  if result != "":
-    bonus_points = int(result)
-  select_center_ok()
-  if bonus_points > 70:
+  while 1:
     bonus_points = 0
-  print "rolled points = ", bonus_points
-  count += 1
+    count = 0
+    
+    start.wait()
+    start.clear()
 
-print "Gratz!"
-print "number of attempts: ", count
+    while (bonus_points < bp_needed) and (not stop.is_set()):
+      select_cancel()
+      select_gnome()
+      select_ok()
+      time.sleep(2.3)
+      im = ImageGrab.grab(box)
+      cimg = cv.CreateImageHeader(im.size, cv.IPL_DEPTH_8U, 3)
+      cv.SetData(cimg, im.tostring())
+      tesseract.SetCvImage(cimg, api)
+      result = api.GetUTF8Text()
+      if result != "":
+        bonus_points = int(result)
+      select_center_ok()
+      if bonus_points > 70:
+        bonus_points = 0
+      print "points = ", bonus_points
+      count += 1
+    
+    if not stop.is_set():
+      print "Gratz!"
+      print "number of attempts: ", count
+     
+    stop.clear()
+
+start = threading.Event()
+stop = threading.Event()
+
+rolling_thread = threading.Thread(target = roll)
+
+rolling_thread.start()
+
+hm = pyHook.HookManager()
+hm.KeyDown = on_keyboard_event
+hm.HookKeyboard()
+
+print "press <F1> to start or <Esc> to stop"
+
+pythoncom.PumpMessages()
+
+rolling_thread.join()
